@@ -30,6 +30,7 @@ class InRankerTrainer:
         gradient_checkpointing: bool = False,
         device: str = "",
         output_dir: str = "trained_model",
+        max_length: int = 512,
         **kwargs,
     ):
         """
@@ -80,6 +81,8 @@ class InRankerTrainer:
 
         print(f"Loading tokenizer: {model}...")
         self.tokenizer = T5Tokenizer.from_pretrained(model)
+        self.tokenizer.model_max_length = max_length
+
         print("Tokenizer loaded.")
         self.config = AutoConfig.from_pretrained(model)
         self.config.num_labels = 1
