@@ -66,8 +66,9 @@ class InRankerTrainer:
         self.training_arguments.gradient_checkpointing = gradient_checkpointing
         # This is required to allow on-the-fly transformation on the dataset
         self.training_arguments.remove_unused_columns = False
-        self.training_arguments.evaluation_strategy = "no"
-        self.training_arguments.do_eval = False
+        self.training_arguments.evaluation_strategy = "steps"
+        self.training_arguments.eval_steps = self.training_arguments.logging_steps
+        self.training_arguments.do_eval = True
 
         print(f"Using device: {self.training_arguments.device}")
 
@@ -220,7 +221,7 @@ class InRankerTrainer:
         )
         return train_dataset
 
-    def train(self, train_dataset, resume_training=False):
+    def train(self, train_dataset, validation_dataset=None, resume_training=False):
         """
         Train the model.
         Args:
@@ -232,6 +233,7 @@ class InRankerTrainer:
             self.model,
             self.training_arguments,
             train_dataset=train_dataset,
+            eval_dataset=validation_dataset,
             tokenizer=self.tokenizer,
         )
         train_result = trainer.train(resume_from_checkpoint=resume_training)
@@ -338,3 +340,11 @@ class T5Trainer(Trainer):
         loss = torch.nn.MSELoss()(logits, labels)
 
         return (loss, outputs) if return_outputs else loss
+
+    def compute_metrics(self, eval_pred):
+        """
+        Compute the metrics.
+        """
+        predictions, labels = eval_pred
+        loss = torch.nn.MSELoss()(torch.tensor(predictions), torch.tensor(labels))
+        return {"validation_loss": loss.item()}
