@@ -351,6 +351,9 @@ class T5Trainer(Trainer):
         """
         Compute the metrics.
         """
-        predictions, labels = eval_pred
-        loss = torch.nn.MSELoss()(torch.tensor(predictions), torch.tensor(labels))
+        logits, labels = eval_pred
+        labels = np.squeeze(labels)
+        relevant_logits = logits[:, :, [self.token_false_id, self.token_true_id]][:, 0]
+
+        loss = torch.nn.MSELoss()(torch.tensor(relevant_logits), torch.tensor(labels))
         return {"validation_loss": loss.item()}
