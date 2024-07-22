@@ -71,7 +71,7 @@ class InRankerTrainer:
         self.training_arguments.eval_steps = self.training_arguments.logging_steps
         self.training_arguments.do_eval = True
         self.training_arguments.load_best_model_at_end = True  # Save best model
-        self.training_arguments.metric_for_best_model = "validation_loss"  # Use validation loss
+        self.training_arguments.metric_for_best_model = "loss"  # Use validation loss
         self.training_arguments.greater_is_better = False  # Lower validation loss is better
 
         print(f"Using device: {self.training_arguments.device}")
