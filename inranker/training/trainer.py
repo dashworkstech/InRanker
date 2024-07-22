@@ -319,12 +319,18 @@ class T5Trainer(Trainer):
         self.token_true_id = self.tokenizer.get_vocab()[token_true]
         print(f"False token: {token_false} ({self.token_false_id})")
         print(f"True token: {token_true} ({self.token_true_id})")
+        self.step_counter = 0
 
     def compute_loss(self, model, inputs, return_outputs=False):
         """
         How the loss is computed by Trainer. By default, all models return the loss in the first element.
         Subclass and override for custom behavior.
         """
+        self.step_counter += 1
+        is_eval = not model.training
+        print(f"{'Eval' if is_eval else 'Train'} Step {self.step_counter}")
+        print(f"Input shape: {inputs['input_ids'].shape}")
+
         labels = np.squeeze(inputs.pop("labels"))
         input_ids = inputs.input_ids
         attention_mask = inputs.attention_mask
@@ -345,15 +351,30 @@ class T5Trainer(Trainer):
         logits = outputs[0][:, :, [self.token_false_id, self.token_true_id]][:, 0]
         loss = torch.nn.MSELoss()(logits, labels)
 
+        print(f"Computed loss: {loss.item()}")
+        print(f"Sample input: {self.tokenizer.decode(input_ids[0])[:100]}...")
+        print(f"Sample label: {labels[0]}")
+        print("-----")
+
         return (loss, outputs) if return_outputs else loss
 
     def compute_metrics(self, eval_pred):
         """
         Compute the metrics.
         """
+        print("Computing metrics for evaluation")
+
         logits, labels = eval_pred
         labels = np.squeeze(labels)
         relevant_logits = logits[:, :, [self.token_false_id, self.token_true_id]][:, 0]
+
+        print(f"Eval predictions shape: {relevant_logits.shape}")
+        print(f"Eval labels shape: {labels.shape}")
+        print(f"Sample eval prediction: {relevant_logits[0]}")
+        print(f"Sample eval label: {labels[0]}")
+
+        print(f"Computed eval loss in metrics: {loss.item()}")
+        print("-----")
 
         loss = torch.nn.MSELoss()(torch.tensor(relevant_logits), torch.tensor(labels))
         return {"validation_loss": loss.item()}
