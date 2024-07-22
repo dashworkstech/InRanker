@@ -6,12 +6,12 @@ from datasets import DatasetDict
 
 trainer = InRankerTrainer(
     model="unicamp-dl/InRanker-small",
-    warmup_steps=200,
+    warmup_steps=1000,
     batch_size=8,
     gradient_accumulation_steps=1,
     bf16=True, # If you have a GPU with BF16 support
     output_dir="trained_model_logging_ws200_bf16_e30_val_ml2560",
-    save_steps=100,
+    save_steps=500,
     num_train_epochs=30,
     logging_steps=100,
     max_length=2560,
