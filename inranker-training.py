@@ -1,9 +1,11 @@
 import mlflow
 import json
+import random
+from collections import defaultdict
 
 mlflow.set_experiment("/Users/praty@dashworks.ai/inranker-ft-dashworks-queries")
 from inranker import InRankerTrainer
-from datasets import DatasetDict
+from datasets import Dataset, DatasetDict
 
 trainer = InRankerTrainer(
     model="unicamp-dl/InRanker-small",
@@ -11,45 +13,47 @@ trainer = InRankerTrainer(
     batch_size=8,
     gradient_accumulation_steps=1,
     bf16=True, # If you have a GPU with BF16 support
-    output_dir="trained_model_logging_ws200_bf16_e30_val_ml2560",
+    output_dir="trained_model_logging_ws1000_bf16_e30_val_ml2560_split_queries",
     save_steps=500,
     num_train_epochs=30,
     logging_steps=100,
     max_length=2560,
 )
 
-train_dataset = trainer.load_custom_dataset(
+# Load the full dataset
+full_dataset = trainer.load_custom_dataset(
     distill_file="inranker_training_data_jul18.jsonl", max_length=2560
-    # distill_file="beir_logits_1k.jsonl", max_length=2048
 )
 
-total_size = len(train_dataset)
-validation_size = int(0.1 * total_size)
-train_size = total_size - validation_size
+# Group data by queries
+query_to_data = defaultdict(list)
+for idx in range(len(full_dataset)):
+    item = full_dataset[idx]
+    query_to_data[item['query']].append(idx)
 
-dataset_dict = DatasetDict({"train": train_dataset})
-split_datasets = dataset_dict["train"].train_test_split(test_size=validation_size, seed=42)
+# Get unique queries
+unique_queries = list(query_to_data.keys())
 
-train_dataset = split_datasets["train"]
-validation_dataset = split_datasets["test"]
+# Randomly select 10% of queries for validation
+validation_size = int(0.1 * len(unique_queries))
+validation_queries = set(random.sample(unique_queries, validation_size))
 
-def write_dataset_to_jsonl(dataset, filename):
-    with open(filename, 'w', encoding='utf-8') as f:
-        for item in dataset:
-            # Reconstruct the original format
-            output = {
-                "query": item['query'],
-                "contents": item['text'],
-                "true_logit": item['label'][1],
-                "false_logit": item['label'][0]
-            }
-            json.dump(output, f)
-            f.write('\n')
+# Create training and validation datasets
+train_indices = []
+validation_indices = []
 
-# Write train dataset
-write_dataset_to_jsonl(train_dataset, "inranker_training_data_jul18_train.jsonl")
+for query, indices in query_to_data.items():
+    if query in validation_queries:
+        validation_indices.extend(indices)
+    else:
+        train_indices.extend(indices)
 
-# Write validation dataset
-write_dataset_to_jsonl(validation_dataset, "inranker_training_data_jul18_validation.jsonl")
+# Use select to create new datasets
+train_dataset = full_dataset.select(train_indices)
+validation_dataset = full_dataset.select(validation_indices)
 
-# trainer.train(train_dataset=train_dataset, validation_dataset=validation_dataset)
+print(f"Training dataset size: {len(train_dataset)}")
+print(f"Validation dataset size: {len(validation_dataset)}")
+
+# Train the model
+trainer.train(train_dataset=train_dataset, validation_dataset=validation_dataset)
